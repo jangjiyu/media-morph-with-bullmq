@@ -45,3 +45,7 @@ $ npm run start:dev
 ```bash
 $ docker-compose up
 ```
+
+## Access the client
+
+Navigate to `http://localhost:3000/client` to access the client.
