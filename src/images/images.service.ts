@@ -1,59 +1,45 @@
-import * as sharp from 'sharp';
-import { MorphImageDto, MorphImageExt } from './dto/morph-image.dto';
-import * as fs from 'fs';
-import * as path from 'path';
-import { BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { MorphImageDto } from './dto/morph-image.dto';
 
+@Injectable()
 export class ImagesService {
-  constructor() {}
+  constructor(
+    @InjectQueue('image-processing') private readonly imageQueue: Queue,
+  ) {}
 
-  async morphImageFile(
+  // 큐에 작업 추가
+  async addImageProcessingJob(
     file: Express.Multer.File,
     morphImageDto: MorphImageDto,
   ): Promise<string> {
-    const { ext, width, height } = morphImageDto;
+    const job = await this.imageQueue.add('process-image', {
+      fileBuffer: file.buffer,
+      fileMimetype: file.mimetype,
+      morphImageDto,
+    });
 
-    const outputDir = path.resolve('morph_output_images');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true }); // output 디렉토리 생성
+    return job.id; // 작업 ID 반환
+  }
 
-    const fileName = Date.now();
+  // 작업 상태 확인
+  async checkJobStatus(
+    jobId: string,
+  ): Promise<{ status: string; result?: string }> {
+    const job = await this.imageQueue.getJob(jobId);
 
-    const outputPath = path.join(outputDir, `${fileName}.${ext}`);
-    // sharp 객체 초기화
-    let transformer = sharp(file.buffer, {
-      animated:
-        file.mimetype === 'image/gif' || file.mimetype === 'image/png'
-          ? true
-          : false,
-    }).withMetadata();
+    if (!job) {
+      throw new Error('Job not found');
+    }
 
-    if (width && height)
-      transformer = transformer.resize(width, height, { fit: 'fill' }); // 둘 다 있으면 지정된 크기로 resize. fill 옵션으로 이미지 비율 무시하고 지정된 크기로 변환
-    else if (width)
-      transformer = transformer.resize({ width }); // width만 있으면 비율에 맞춰 resize
-    else if (height) transformer = transformer.resize({ height }); // height만 있으면 비율에 맞춰 resize
-
-    const qualityOptions = {
-      quality: 100,
-      chromaSubsampling: '4:4:4',
-    };
-
-    // ext 포맷별 변환
-    const formatMap = {
-      [MorphImageExt.JPG]: () => transformer.toFormat('jpg', qualityOptions),
-      [MorphImageExt.PNG]: () => transformer.toFormat('png', qualityOptions),
-      [MorphImageExt.WEBP]: () => transformer.toFormat('webp', qualityOptions),
-      [MorphImageExt.GIF]: () =>
-        transformer.toFormat('gif', { ...qualityOptions }),
-    };
-
-    if (!formatMap[ext])
-      throw new BadRequestException('Unsupported image format');
-
-    // 변환 실행 및 파일 저장
-    await formatMap[ext]().toFile(outputPath);
-
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    return `${baseUrl}/output-images/${fileName}.${ext}`;
+    if (job.isCompleted()) {
+      const result = await job.returnvalue; // 완료된 경우 결과 반환
+      return { status: 'completed', result };
+    } else if (job.isFailed()) {
+      return { status: 'failed' };
+    } else {
+      return { status: 'pending' };
+    }
   }
 }

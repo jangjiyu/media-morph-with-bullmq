@@ -1,3 +1,5 @@
+/morph_output_*
+
 # compiled output
 /dist
 /node_modules

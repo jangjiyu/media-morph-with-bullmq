@@ -94,6 +94,7 @@
     const fileInput = document.getElementById('fileInput');
     const imageOptions = document.querySelector('.image-options');
     const videoOptions = document.querySelector('.video-options');
+    const baseUrl = 'http://localhost:3000'; // 서버의 베이스 URL
 
     fileInput.addEventListener('change', function () {
       const file = fileInput.files[0];
@@ -163,29 +164,59 @@
           throw new Error('File conversion failed');
         }
 
-        const data = await response.text();
-        const previewElement = document.getElementById('preview');
-
-        // Clear previous preview
-        previewElement.innerHTML = '';
-
-        // Check if the converted file is an image or video and display it
-        if (file.type.startsWith('image/')) {
-          const img = document.createElement('img');
-          img.src = data; // URL from the API response
-          previewElement.appendChild(img);
-        } else {
-          const video = document.createElement('video');
-          video.src = data; // URL from the API response
-          video.controls = true;
-          previewElement.appendChild(video);
-        }
+        const jobId = await response.text(); // 작업 ID 반환
+        checkJobStatus(jobId, file.type);  // 상태 확인 함수 호출
 
       } catch (error) {
         console.error('Error uploading and converting file:', error);
         alert('File conversion failed. Please try again.');
       }
     });
+
+    async function checkJobStatus(jobId, fileType) {
+      let attempts = 0; // 시도 횟수를 추적하는 변수
+      const maxAttempts = 30; // 최대 100번 시도
+
+      const interval = setInterval(async () => {
+        attempts++; // 시도 횟수 증가
+        if (attempts > maxAttempts) {
+          clearInterval(interval);
+          alert('Job status check timed out.');
+          return;
+        }
+
+
+        try {
+          const url = fileType.startsWith('image/') ? '/images/status' : '/videos/status';
+          const response = await fetch(`${url}/${jobId}`);
+          const statusData = await response.json();
+
+          if (statusData.status === 'completed' && statusData.result) {
+            clearInterval(interval);
+            const previewElement = document.getElementById('preview');
+            previewElement.innerHTML = ''; // 이전 미리보기 삭제
+
+            // 파일이 이미지인지 비디오인지에 따라 미리보기
+            if (fileType.startsWith('image/')) {
+              const img = document.createElement('img');
+              img.src = `${statusData.result}`; // API에서 반환된 URL 사용
+              previewElement.appendChild(img);
+            } else {
+              const video = document.createElement('video');
+              video.src = `${statusData.result}`; // API에서 반환된 URL 사용
+              video.controls = true;
+              previewElement.appendChild(video);
+            }
+          } else if (statusData.status === 'failed') {
+            clearInterval(interval);
+            alert('File processing failed.');
+          }
+
+        } catch (error) {
+          console.error('Error checking job status:', error);
+        }
+      }, 3000);  // 3초마다 상태 확인 - 로컬에 저장하는 거라 완료됐는지 확인이 필요하여 3초마다 호출하여 확인 -> 프로그래스바로 변경하는 게 유저 경험에 좋을 것 같음
+    }
   </script>
 
 </body>
