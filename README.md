@@ -32,6 +32,26 @@
 $ npm install
 ```
 
+## FFmpeg
+
+FFmpeg installation is required to run the app. You can install it using the following commands:
+
+##### Windows
+
+```bash
+$ choco install ffmpeg
+```
+
+##### Mac
+
+```bash
+$ brew install ffmpeg
+```
+
+##### FFmpeg Official Website
+
+[Download FFmpeg](https://www.ffmpeg.org/download.html)
+
 ## Running the app
 
 ```bash
@@ -40,22 +60,12 @@ $ npm run start
 
 # watch mode
 $ npm run start:dev
-
-# production mode
-$ npm run start:prod
 ```
 
-## Test
+## Running the app with Docker Compose
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+$ docker-compose up
 ```
 
 ## Support
