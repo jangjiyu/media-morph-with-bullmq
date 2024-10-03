@@ -7,3 +7,9 @@ services:
       - '3000:3000'
     volumes:
       - .:/app
+    depends_on:
+      - redis
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '6379:6379'

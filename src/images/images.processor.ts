@@ -19,7 +19,7 @@ export class ImageProcessor implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {
     // Redis 연결 정보를 ConfigService에서 가져옴
     this.redisConnection = {
-      host: this.configService.get<string>('REDIS_HOST', 'localhost'),
+      host: this.configService.get<string>('REDIS_HOST', 'redis'),
       port: this.configService.get<number>('REDIS_PORT', 6379),
     };
   }
