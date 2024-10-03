@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload and Preview</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    input[type="file"] {
+      margin-bottom: 20px;
+    }
+
+    .preview {
+      margin-top: 20px;
+    }
+
+    .preview img,
+    .preview video {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .image-options,
+    .video-options {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Upload and Convert File</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+      <label for="fileInput">Choose an image or video to upload:</label><br>
+      <input type="file" id="fileInput" accept="image/*,video/*"><br><br>
+
+      <!-- Image Options -->
+      <div class="image-options">
+        <label for="imageExt">Select image format:</label>
+        <select id="imageExt" required>
+          <option value="jpg">JPG</option>
+          <option value="png">PNG</option>
+          <option value="webp">WEBP</option>
+          <option value="gif">GIF</option>
+        </select><br><br>
+
+        <label for="imageWidth">Width (optional):</label>
+        <input type="number" id="imageWidth" placeholder="Width"><br><br>
+
+        <label for="imageHeight">Height (optional):</label>
+        <input type="number" id="imageHeight" placeholder="Height"><br><br>
+      </div>
+
+      <!-- Video Options -->
+      <div class="video-options">
+        <label for="videoQuality">Select video quality (1=low, 2=medium, 3=high):</label>
+        <select id="videoQuality" required>
+          <option value="1">Low</option>
+          <option value="2" selected>Medium</option>
+          <option value="3">High</option>
+        </select><br><br>
+
+        <label for="videoExt">Select video format:</label>
+        <select id="videoExt">
+          <option value="mp4">MP4</option>
+          <option value="avi">AVI</option>
+          <option value="webm">WEBM</option>
+        </select><br><br>
+
+        <label for="videoWidth">Width (optional):</label>
+        <input type="number" id="videoWidth" placeholder="Width"><br><br>
+      </div>
+
+      <button type="submit">Upload and Convert</button>
+    </form>
+
+    <div class="preview" id="preview">
+      <!-- Preview will be shown here -->
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const imageOptions = document.querySelector('.image-options');
+    const videoOptions = document.querySelector('.video-options');
+
+    fileInput.addEventListener('change', function () {
+      const file = fileInput.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      if (file.type.startsWith('image/')) {
+        imageOptions.style.display = 'block';
+        videoOptions.style.display = 'none';
+      } else if (file.type.startsWith('video/')) {
+        videoOptions.style.display = 'block';
+        imageOptions.style.display = 'none';
+      }
+    });
+
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      let apiUrl, dtoData;
+
+      if (file.type.startsWith('image/')) {
+        // 이미지에 대한 API URL 및 데이터 처리
+        apiUrl = '/images/morph';
+        const ext = document.getElementById('imageExt').value;
+        const width = document.getElementById('imageWidth').value;
+        const height = document.getElementById('imageHeight').value;
+
+        dtoData = {
+          ext: ext,
+          width: width ? parseInt(width, 10) : undefined,
+          height: height ? parseInt(height, 10) : undefined,
+        };
+
+      } else if (file.type.startsWith('video/')) {
+        // 비디오에 대한 API URL 및 데이터 처리
+        apiUrl = '/videos/morph';
+        const quality = document.getElementById('videoQuality').value;
+        const ext = document.getElementById('videoExt').value;
+        const width = document.getElementById('videoWidth').value;
+
+        dtoData = {
+          quality: parseInt(quality, 10),
+          ext: ext,
+          width: width ? parseInt(width, 10) : undefined,
+        };
+      }
+
+      Object.keys(dtoData).forEach(key => {
+        if (dtoData[key] !== undefined) {
+          formData.append(key, dtoData[key]);
+        }
+      });
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.status !== 201) {
+          throw new Error('File conversion failed');
+        }
+
+        const data = await response.text();
+        const previewElement = document.getElementById('preview');
+
+        // Clear previous preview
+        previewElement.innerHTML = '';
+
+        // Check if the converted file is an image or video and display it
+        if (file.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = data; // URL from the API response
+          previewElement.appendChild(img);
+        } else {
+          const video = document.createElement('video');
+          video.src = data; // URL from the API response
+          video.controls = true;
+          previewElement.appendChild(video);
+        }
+
+      } catch (error) {
+        console.error('Error uploading and converting file:', error);
+        alert('File conversion failed. Please try again.');
+      }
+    });
+  </script>
+
+</body>
+
+</html>
